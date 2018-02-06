@@ -28,11 +28,6 @@ void CurvatureCombCtx::toolOffCleanup() {
 	MPxContext::toolOffCleanup();
 }
 
-void CurvatureCombCtx::getClassName(MString &name) const
-{
-	name.set("curvatureCombCtx");
-}
-
 // VP2
 MStatus CurvatureCombCtx::doPress(MEvent &event, MHWRender::MUIDrawManager &drawMgr, const MHWRender::MFrameContext &context) {
 	return doPress(event);

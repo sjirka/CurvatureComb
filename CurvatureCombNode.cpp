@@ -12,6 +12,8 @@
 #include <maya\MFnSingleIndexedComponent.h>
 #include <maya\MPxManipContainer.h>
 #include <maya\MViewport2Renderer.h>
+#include <maya\MFnCamera.h>
+#include <maya\MFnNurbsCurveData.h>
 
 #include "../_library/SMath.h"
 
@@ -108,9 +110,6 @@ MStatus CurvatureCombNode::initialize() {
 	addAttribute(aGeometry);
 	attributeAffects(aGeometry, aUpdate);
 
-	status = MPxManipContainer::addToManipConnectTable(id);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-
 	return MS::kSuccess;
 }
 
@@ -146,6 +145,8 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 	MPlug pGeometryArray = fnNode.findPlug(aGeometry, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
+	unsigned int numViews = M3dView::numberOf3dViews();
+
 	for (unsigned int i = 0; i < hGeometryArray.elementCount(); i++) {
 		status = hGeometryArray.jumpToArrayElement(i);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -159,8 +160,25 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 			MObject worldGeometry = hWorldGeometry.data();
 
 			if(MFn::kNurbsCurveData == worldGeometry.apiType()){
-				status = getCurveCurvature(worldGeometry, samples, m_geoData[logicalIndex]);
-				CHECK_MSTATUS_AND_RETURN_IT(status);
+				worldGeometry = hWorldGeometry.asNurbsCurveTransformed();
+
+				for (unsigned int w = 0; w < numViews; w++) {
+					M3dView view;
+					M3dView::get3dView(w, view);
+					MDagPath camPath;
+					status = view.getCamera(camPath);
+					CHECK_MSTATUS_AND_RETURN_IT(status);
+					MFnCamera fnCamera(camPath, &status);
+					CHECK_MSTATUS_AND_RETURN_IT(status);
+					MUuid camId = fnCamera.uuid(&status);
+					CHECK_MSTATUS_AND_RETURN_IT(status);
+
+					SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(fnCamera.centerOfInterestPoint(MSpace::kWorld), fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
+
+					status = getCurveCurvature(worldGeometry, samples, m_geoData[logicalIndex].geoViewData[camId.asString().asChar()], camPlane);
+					CHECK_MSTATUS_AND_RETURN_IT(status);
+				}
+				
 			}
 			else if (MFn::kMeshData == worldGeometry.apiType()) {
 				worldGeometry = hWorldGeometry.asMeshTransformed();
@@ -189,15 +207,31 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 					status = workMesh.smoothMesh(smOpt);
 					CHECK_MSTATUS_AND_RETURN_IT(status);
 
-					status = getMeshCurvature(workMesh, m_geoData[logicalIndex]);
+					for (unsigned int w = 0; w < numViews; w++) {
+						M3dView view;
+						M3dView::get3dView(w, view);
+						MDagPath camPath;
+						status = view.getCamera(camPath);
+						CHECK_MSTATUS_AND_RETURN_IT(status);
+						MFnCamera fnCamera(camPath, &status);
+						CHECK_MSTATUS_AND_RETURN_IT(status);
+						MUuid camId = fnCamera.uuid(&status);
+						CHECK_MSTATUS_AND_RETURN_IT(status);
+
+						SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(fnCamera.centerOfInterestPoint(MSpace::kWorld), fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
+
+						status = getMeshCurvature(workMesh, m_geoData[logicalIndex].geoViewData[camId.asString().asChar()], camPlane);
+						CHECK_MSTATUS_AND_RETURN_IT(status);
+					}
 				}
 			}
 		}
 
 		if (m_geoData[logicalIndex].isDirty || m_dirtySamples || m_dirtyScale)
-			for(auto &geoData : m_geoData[logicalIndex].geoData)
-				for (unsigned int i = 0; i < geoData.samplePoints.length(); i++)
-					geoData.profilePoints[i] = geoData.samplePoints[i] + geoData.sampleNormals[i] * scale;
+			for(auto &geoViewData : m_geoData[logicalIndex].geoViewData)
+				for (auto &geoData : geoViewData.second.geoData)
+					for (unsigned int i = 0; i < geoData.samplePoints.length(); i++)
+						geoData.profilePoints[i] = geoData.samplePoints[i] + geoData.sampleNormals[i] * scale;
 
 		m_geoData[logicalIndex].isDirty = false;
 	}
@@ -225,8 +259,13 @@ void CurvatureCombNode::draw(M3dView &view, const MDagPath &path, M3dView::Displ
 	MColor profileColor = (stat==M3dView::kDormant) ? view.colorAtIndex(12, M3dView::kDormantColors) : view.colorAtIndex(8, M3dView::kActiveColors);
 	MColor combColor = (stat == M3dView::kDormant) ? view.colorAtIndex(6, M3dView::kDormantColors) : view.colorAtIndex(18, M3dView::kActiveColors);
 
+	MDagPath camPath;
+	view.getCamera(camPath);
+	MUuid camId = SNode::getUuid(camPath.node(), &status);
+	CHECK_MSTATUS(status)
+
 	for (auto &geo : m_geoData) {
-		for (auto &geoData : geo.second.geoData) {
+		for (auto &geoData : geo.second.geoViewData[camId.asString().asChar()].geoData) {
 			glColor3f(profileColor.r, profileColor.g, profileColor.b);
 			glBegin(GL_LINE_STRIP);
 			for (unsigned int i = 0; i < geoData.profilePoints.length(); i++) {
@@ -252,18 +291,31 @@ void CurvatureCombNode::draw(M3dView &view, const MDagPath &path, M3dView::Displ
 	view.endGL();
 }
 
-MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int samples, CurvatureGeometry &geometry) {
+MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int samples, CurvatureViewGeometry &geometry, SPlane &plane) {
 	MStatus status;
 
 	geometry.geoData.clear();
 	CurvatureData data;
 	data.setNumSamples(samples+1);
 
-	if (curve.apiType() != MFn::kNurbsCurveData)
+	if (curve.apiType() != MFn::kNurbsCurveData && curve.apiType() != MFn::kNurbsCurveGeom)
 		return MS::kInvalidParameter;
 
-	MFnNurbsCurve fnCurve(curve, &status);
+	MFnNurbsCurveData dataCreator;
+	MObject duplCurve = dataCreator.create();
+
+	MFnNurbsCurve fnCurve(duplCurve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	duplCurve = fnCurve.copy(curve, duplCurve, &status);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+
+	if (plane != SPlane::ZERO) {
+		MPointArray curveCVs;
+		fnCurve.getCVs(curveCVs);
+		MPointArray newCVs = plane.project(curveCVs);
+		fnCurve.setCVs(newCVs);
+	}
 
 	double span = fnCurve.length() / samples;
 
@@ -272,18 +324,18 @@ MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int sample
 		double param = fnCurve.findParamFromLength(length, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 
-		data.sampleNormals[i] = fnCurve.normal(param, MSpace::kWorld, &status);
+		data.sampleNormals[i] = fnCurve.normal(param, MSpace::kObject, &status).normal();
 		
 		if (status != MS::kSuccess) {
 			data.sampleNormals[i] = MVector::zero;
-			status = fnCurve.getPointAtParam(param, data.samplePoints[i], MSpace::kWorld);
+			status = fnCurve.getPointAtParam(param, data.samplePoints[i], MSpace::kObject);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 		else{
 			MVector
 				firstD,
 				secondD;
-			status = fnCurve.getDerivativesAtParm(param, data.samplePoints[i], firstD, MSpace::kWorld, &secondD);
+			status = fnCurve.getDerivativesAtParm(param, data.samplePoints[i], firstD, MSpace::kObject, &secondD);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			double curvature = secondD.length() / pow((1 + pow(firstD.length(), 2)), 3 / 2);
@@ -296,7 +348,7 @@ MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int sample
 	return MS::kSuccess;
 }
 
-MStatus CurvatureCombNode::getMeshCurvature(SMesh &mesh, CurvatureGeometry &geometry) {
+MStatus CurvatureCombNode::getMeshCurvature(SMesh &mesh, CurvatureViewGeometry &geometry, SPlane &plane) {
 	MStatus status;
 
 	geometry.geoData.clear();
@@ -311,8 +363,10 @@ MStatus CurvatureCombNode::getMeshCurvature(SMesh &mesh, CurvatureGeometry &geom
 
 		if (loop.isClosed()) {
 			loopPoints.append(loopPoints[1]);
-			loopPoints.insert(loopPoints[loopPoints.length()-3], 0);
+			loopPoints.insert(loopPoints[loopPoints.length() - 3], 0);
 		}
+
+		loopPoints = (plane != SPlane::ZERO) ? plane.project(loopPoints) : loopPoints;
 
 		CurvatureData data;
 		data.setNumSamples(loopPoints.length()-2);

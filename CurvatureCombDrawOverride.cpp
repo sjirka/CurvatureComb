@@ -25,6 +25,8 @@ MUserData* CurvatureCombDrawOverride::prepareForDraw(const MDagPath& objPath, co
 
 	m_profileColor = (displayStatus == MHWRender::kDormant) ? view.colorAtIndex(12, M3dView::kDormantColors) : view.colorAtIndex(8, M3dView::kActiveColors);
 	m_combColor = (displayStatus == MHWRender::kDormant) ? view.colorAtIndex(6, M3dView::kDormantColors) : view.colorAtIndex(18, M3dView::kActiveColors);
+	m_camId = SNode::getUuid(cameraPath.node(), &status);
+	CHECK_MSTATUS(status);
 
 	return oldData;
 }
@@ -40,7 +42,7 @@ void CurvatureCombDrawOverride::addUIDrawables(const MDagPath& objPath, MHWRende
 	drawManager.beginDrawable();
 
 	for (auto &geo : *geoData) {
-		for (auto &data : geo.second.geoData) {
+		for (auto &data : geo.second.geoViewData[m_camId.asString().asChar()].geoData) {
 			drawManager.setColor(m_profileColor);
 			drawManager.lineStrip(data.profilePoints, false);
 

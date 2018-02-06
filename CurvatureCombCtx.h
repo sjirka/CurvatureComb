@@ -12,7 +12,6 @@ public:
 	virtual void toolOnSetup(MEvent &);
 	virtual void doEnterRegion();
 	virtual void toolOffCleanup();
-	virtual void getClassName(MString &name) const;
 
 	virtual MStatus doPress(MEvent &event);
 	virtual MStatus doDrag(MEvent &event);

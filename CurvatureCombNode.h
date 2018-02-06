@@ -4,10 +4,13 @@
 #include <maya\MUserData.h>
 #include <maya\MPointArray.h>
 #include <maya\MVectorArray.h>
+#include <maya\MUuid.h>
 #include <map>
 #include <vector>
 
 #include "../_library/SMesh.h"
+#include "../_library/SNode.h"
+#include "../_library/SPlane.h"
 
 struct CurvatureData {
 	void clear() {
@@ -30,8 +33,12 @@ struct CurvatureData {
 		sampleNormals;
 };
 
-struct CurvatureGeometry{
+struct CurvatureViewGeometry {
 	std::vector <CurvatureData> geoData;
+};
+
+struct CurvatureGeometry{
+	std::map <std::string, CurvatureViewGeometry> geoViewData;
 
 	bool isDirty;
 };
@@ -50,8 +57,8 @@ public:
 	virtual MStatus compute(const MPlug &plug, MDataBlock &datablock);
 	virtual void draw(M3dView &view, const MDagPath &path, M3dView::DisplayStyle style, M3dView::DisplayStatus stat);
 
-	MStatus getCurveCurvature(MObject &curve, unsigned int samples, CurvatureGeometry &geometry);
-	MStatus getMeshCurvature(SMesh &mesh, CurvatureGeometry &geometry);
+	MStatus getCurveCurvature(MObject &curve, unsigned int samples, CurvatureViewGeometry &geometry, SPlane &plane=SPlane::ZERO);
+	MStatus getMeshCurvature(SMesh &mesh, CurvatureViewGeometry &geometry, SPlane &plane=SPlane::ZERO);
 
 	std::map <unsigned int, CurvatureGeometry> *getGeoData();
 

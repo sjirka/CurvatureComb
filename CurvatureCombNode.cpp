@@ -317,13 +317,13 @@ MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int sample
 		fnCurve.setCVs(newCVs);
 	}
 
-	double span = fnCurve.length() / samples;
+	double start, end;
+	status = fnCurve.getKnotDomain(start, end);
+	CHECK_MSTATUS_AND_RETURN_IT(status)
+	double span = (end - start) / samples;
 
 	for (unsigned int i = 0; i < samples+1; i++) {
-		double length = i*span;
-		double param = fnCurve.findParamFromLength(length, &status);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
-
+		double param = i*span + start;
 		data.sampleNormals[i] = fnCurve.normal(param, MSpace::kObject, &status).normal();
 		
 		if (status != MS::kSuccess) {

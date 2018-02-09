@@ -322,25 +322,14 @@ MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int sample
 	CHECK_MSTATUS_AND_RETURN_IT(status)
 	double span = (end - start) / samples;
 
-	for (unsigned int i = 0; i < samples+1; i++) {
+	for (unsigned int i = 0; i < samples + 1; i++) {
 		double param = i*span + start;
-		data.sampleNormals[i] = fnCurve.normal(param, MSpace::kObject, &status).normal();
-		
-		if (status != MS::kSuccess) {
-			data.sampleNormals[i] = MVector::zero;
-			status = fnCurve.getPointAtParam(param, data.samplePoints[i], MSpace::kObject);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
-		}
-		else{
-			MVector
-				firstD,
-				secondD;
-			status = fnCurve.getDerivativesAtParm(param, data.samplePoints[i], firstD, MSpace::kObject, &secondD);
-			CHECK_MSTATUS_AND_RETURN_IT(status);
 
-			double curvature = secondD.length() / pow((1 + pow(firstD.length(), 2)), 3 / 2);
-			data.sampleNormals[i] *= -curvature;
-		}
+		status = fnCurve.getPointAtParam(param, data.samplePoints[i]);
+		CHECK_MSTATUS_AND_RETURN_IT(status);
+		MVector normal = fnCurve.normal(param, MSpace::kObject, &status);
+		
+		data.sampleNormals[i] = (status != MS::kSuccess) ? MVector::zero : data.sampleNormals[i].normal() / data.sampleNormals[i].length() * -1;
 	}
 
 	geometry.geoData.push_back(data);

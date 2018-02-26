@@ -218,7 +218,12 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 						MUuid camId = fnCamera.uuid(&status);
 						CHECK_MSTATUS_AND_RETURN_IT(status);
 
-						SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(fnCamera.centerOfInterestPoint(MSpace::kWorld), fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
+						MPoint nearPlane, farPlane;
+						unsigned int x, y, width, height;
+						view.viewport(x, y, width, height);
+						view.viewToWorld(width / 2, height / 2, nearPlane, farPlane);
+
+						SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(nearPlane, fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
 
 						status = getMeshCurvature(workMesh, m_geoData[logicalIndex].geoViewData[camId.asString().asChar()], camPlane);
 						CHECK_MSTATUS_AND_RETURN_IT(status);

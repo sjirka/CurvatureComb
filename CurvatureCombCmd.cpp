@@ -162,7 +162,7 @@ MStatus CurvatureCombCmd::redoIt() {
 
 		appendToResult(fnTransform.name());
 		appendToResult(fnNode.name());
-		m_dagMod.commandToExecute("select " + fnNode.name());
+		m_dagMod.commandToExecute("select " + fnNode.fullPathName());
 		m_dagMod.commandToExecute("string $ccCtx = `curvatureCombCtx`; setToolTo $ccCtx;");
 	}
 

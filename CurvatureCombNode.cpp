@@ -173,7 +173,12 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 					MUuid camId = fnCamera.uuid(&status);
 					CHECK_MSTATUS_AND_RETURN_IT(status);
 
-					SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(fnCamera.centerOfInterestPoint(MSpace::kWorld), fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
+					MPoint nearPlane, farPlane;
+					unsigned int x, y, width, height;
+					view.viewport(x, y, width, height);
+					view.viewToWorld(width / 2, height / 2, nearPlane, farPlane);
+
+					SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(nearPlane, fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
 
 					status = getCurveCurvature(worldGeometry, samples, m_geoData[logicalIndex].geoViewData[camId.asString().asChar()], camPlane);
 					CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -305,14 +310,14 @@ MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int sample
 
 	if (curve.apiType() != MFn::kNurbsCurveData && curve.apiType() != MFn::kNurbsCurveGeom)
 		return MS::kInvalidParameter;
-
+	
 	MFnNurbsCurveData dataCreator;
 	MObject duplCurve = dataCreator.create();
 
 	MFnNurbsCurve fnCurve(duplCurve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
-	duplCurve = fnCurve.copy(curve, duplCurve, &status);
+	fnCurve.copy(curve, duplCurve, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	if (plane != SPlane::ZERO) {
@@ -331,10 +336,9 @@ MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int sample
 		double param = i*span + start;
 
 		status = fnCurve.getPointAtParam(param, data.samplePoints[i]);
-		CHECK_MSTATUS_AND_RETURN_IT(status);
 		MVector normal = fnCurve.normal(param, MSpace::kObject, &status);
 		
-		data.sampleNormals[i] = (status != MS::kSuccess) ? MVector::zero : data.sampleNormals[i].normal() / data.sampleNormals[i].length() * -1;
+		data.sampleNormals[i] = (status != MS::kSuccess) ? MVector::zero : normal.normal() / normal.length() * -1;
 	}
 
 	geometry.geoData.push_back(data);
@@ -381,12 +385,12 @@ MStatus CurvatureCombNode::getMeshCurvature(SMesh &mesh, CurvatureViewGeometry &
 			// Insert zero value to the begining...
 			data.samplePoints.insert(loopPoints[0], 0);
 			data.sampleNormals.insert(MVector::zero, 0);
-			data.profilePoints.insert(MPoint::origin, 0);
+			data.profilePoints.insert(loopPoints[0], 0);
 
 			// ...And to the end
 			data.samplePoints.append(loopPoints[loopPoints.length() - 1]);
 			data.sampleNormals.append(MVector::zero);
-			data.profilePoints.append(MPoint::origin);
+			data.profilePoints.append(loopPoints[0]);
 		}
 
 		geometry.geoData.push_back(data);

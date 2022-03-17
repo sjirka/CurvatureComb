@@ -57,6 +57,8 @@ public:
 	virtual MStatus compute(const MPlug &plug, MDataBlock &datablock);
 	virtual void draw(M3dView &view, const MDagPath &path, M3dView::DisplayStyle style, M3dView::DisplayStatus stat);
 
+	virtual bool drawLast() const { return true; };
+
 	MStatus getCurveCurvature(MObject &curve, unsigned int samples, CurvatureViewGeometry &geometry, SPlane &plane=SPlane::ZERO);
 	MStatus getMeshCurvature(SMesh &mesh, CurvatureViewGeometry &geometry, SPlane &plane=SPlane::ZERO);
 

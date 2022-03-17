@@ -3,6 +3,7 @@
 #include <maya\MFnDagNode.h>
 #include <maya\MHWGeometryUtilities.h>
 #include <maya\M3dView.h>
+#include <maya\MFnCamera.h>
 
 CurvatureCombDrawOverride::CurvatureCombDrawOverride(const MObject& obj) : MHWRender::MPxDrawOverride(obj, CurvatureCombDrawOverride::draw)
 {
@@ -16,7 +17,7 @@ MUserData* CurvatureCombDrawOverride::prepareForDraw(const MDagPath& objPath, co
 	MStatus status;
 
 	MFnDagNode fnNode(objPath);
-	MPlug pUpdate = fnNode.findPlug(CurvatureCombNode::aUpdate, &status);
+	MPlug pUpdate = fnNode.findPlug(CurvatureCombNode::aUpdate, false, &status);
 	CHECK_MSTATUS(status);
 	MObject oUpdate = pUpdate.asMObject();
 
@@ -25,7 +26,7 @@ MUserData* CurvatureCombDrawOverride::prepareForDraw(const MDagPath& objPath, co
 
 	m_profileColor = (displayStatus == MHWRender::kDormant) ? view.colorAtIndex(12, M3dView::kDormantColors) : view.colorAtIndex(8, M3dView::kActiveColors);
 	m_combColor = (displayStatus == MHWRender::kDormant) ? view.colorAtIndex(6, M3dView::kDormantColors) : view.colorAtIndex(18, M3dView::kActiveColors);
-	m_camId = SNode::getUuid(cameraPath.node(), &status);
+
 	CHECK_MSTATUS(status);
 
 	return oldData;
@@ -38,11 +39,16 @@ void CurvatureCombDrawOverride::addUIDrawables(const MDagPath& objPath, MHWRende
 	CurvatureCombNode *nodePtr = dynamic_cast<CurvatureCombNode*>(fnNode.userNode());
 
 	std::map <unsigned int, CurvatureGeometry> *geoData = nodePtr->getGeoData();
+	
+	MDagPath camPath = frameContext.getCurrentCameraPath();
+	MFnCamera fnCam(camPath);
+
+	MUuid camId = SNode::getUuid(camPath.node(), &status);
 
 	drawManager.beginDrawable();
 
 	for (auto &geo : *geoData) {
-		for (auto &data : geo.second.geoViewData[m_camId.asString().asChar()].geoData) {
+		for (auto &data : geo.second.geoViewData[camId.asString().asChar()].geoData) {
 			drawManager.setColor(m_profileColor);
 			drawManager.lineStrip(data.profilePoints, false);
 

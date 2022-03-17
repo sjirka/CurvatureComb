@@ -42,6 +42,9 @@
     <ClCompile Include="CurvatureCombToolCmd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\_library\SPlane.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\_library\SNode.h">
@@ -72,6 +75,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CurvatureCombToolCmd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\_library\SPlane.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

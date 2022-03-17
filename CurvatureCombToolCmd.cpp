@@ -53,14 +53,14 @@ MStatus CurvatureCombToolCmd::redoIt() {
 
 		if (m_attr == CurvatureAttribute::kScale) {
 			double newScale = activeNode.initialValue + m_delta;
-			MPlug pScale = fnNode.findPlug(CurvatureCombNode::aScale, &status);
+			MPlug pScale = fnNode.findPlug(CurvatureCombNode::aScale, false, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 			status = m_dagMod.newPlugValueDouble(pScale, newScale);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 		}
 		else if(m_attr == CurvatureAttribute::kSamples){
 			double newSamples = activeNode.initialValue + m_delta/100;
-			MPlug pSamples = fnNode.findPlug(CurvatureCombNode::aSamples, &status);
+			MPlug pSamples = fnNode.findPlug(CurvatureCombNode::aSamples, false, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			MFnNumericAttribute fnSamples(CurvatureCombNode::aSamples);
@@ -74,7 +74,7 @@ MStatus CurvatureCombToolCmd::redoIt() {
 		}
 		else if (m_attr == CurvatureAttribute::kSubdivisions) {
 			double newSubdivs = activeNode.initialValue + m_delta / 200;
-			MPlug pSubdivs = fnNode.findPlug(CurvatureCombNode::aSubdivs, &status);
+			MPlug pSubdivs = fnNode.findPlug(CurvatureCombNode::aSubdivs, false, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			MFnNumericAttribute fnSamples(CurvatureCombNode::aSubdivs);
@@ -85,7 +85,7 @@ MStatus CurvatureCombToolCmd::redoIt() {
 			if (min <= newSubdivs && max >= newSubdivs) {
 				status = m_dagMod.newPlugValueInt(pSubdivs, (int)newSubdivs);
 				CHECK_MSTATUS_AND_RETURN_IT(status);
-				MPlug pOverrideSubdivs = fnNode.findPlug(CurvatureCombNode::aOverrideSubdivs, &status);
+				MPlug pOverrideSubdivs = fnNode.findPlug(CurvatureCombNode::aOverrideSubdivs, false, &status);
 				status = m_dagMod.newPlugValueBool(pOverrideSubdivs, true);
 				CHECK_MSTATUS_AND_RETURN_IT(status);
 			}

@@ -89,19 +89,19 @@ MStatus CurvatureCombNode::initialize() {
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	cAttr.setArray(true);
 
-	aWorldGeometry = tAttr.create("worldGeometry", "worldGeometry", MFnData::kAny, &status);
+	aWorldGeometry = tAttr.create("worldGeometry", "worldGeometry", MFnData::kAny, MObject::kNullObj, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	addAttribute(aWorldGeometry);
 	attributeAffects(aWorldGeometry, aUpdate);
 	cAttr.addChild(aWorldGeometry);
 
-	aSmoothGeometry = tAttr.create("smoothGeometry", "smoothGeometry", MFnData::kMesh, &status);
+	aSmoothGeometry = tAttr.create("smoothGeometry", "smoothGeometry", MFnData::kMesh, MObject::kNullObj, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	addAttribute(aSmoothGeometry);
 	attributeAffects(aSmoothGeometry, aUpdate);
 	cAttr.addChild(aSmoothGeometry);
 
-	aComponent = tAttr.create("component", "component", MFnData::kComponentList, &status);
+	aComponent = tAttr.create("component", "component", MFnData::kComponentList, MObject::kNullObj, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	addAttribute(aComponent);
 	attributeAffects(aComponent, aUpdate);
@@ -142,7 +142,7 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 	
 	MFnDagNode fnNode(thisMObject(), &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
-	MPlug pGeometryArray = fnNode.findPlug(aGeometry, &status);
+	MPlug pGeometryArray = fnNode.findPlug(aGeometry, false, &status);
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 
 	unsigned int numViews = M3dView::numberOf3dViews();
@@ -173,12 +173,8 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 					MUuid camId = fnCamera.uuid(&status);
 					CHECK_MSTATUS_AND_RETURN_IT(status);
 
-					MPoint nearPlane, farPlane;
-					unsigned int x, y, width, height;
-					view.viewport(x, y, width, height);
-					view.viewToWorld(width / 2, height / 2, nearPlane, farPlane);
-
-					SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(nearPlane, fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
+					MPoint planeOrigin = 1.01 * fnCamera.nearClippingPlane() * fnCamera.viewDirection(MSpace::kWorld).normal() + fnCamera.eyePoint(MSpace::kWorld);
+					SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(planeOrigin, fnCamera.viewDirection(MSpace::kWorld).normal()) : SPlane::ZERO;
 
 					status = getCurveCurvature(worldGeometry, samples, m_geoData[logicalIndex].geoViewData[camId.asString().asChar()], camPlane);
 					CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -223,12 +219,8 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 						MUuid camId = fnCamera.uuid(&status);
 						CHECK_MSTATUS_AND_RETURN_IT(status);
 
-						MPoint nearPlane, farPlane;
-						unsigned int x, y, width, height;
-						view.viewport(x, y, width, height);
-						view.viewToWorld(width / 2, height / 2, nearPlane, farPlane);
-
-						SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(nearPlane, fnCamera.viewDirection(MSpace::kWorld)) : SPlane::ZERO;
+						MPoint planeOrigin = 1.01 * fnCamera.nearClippingPlane() * fnCamera.viewDirection(MSpace::kWorld).normal() + fnCamera.eyePoint(MSpace::kWorld);
+						SPlane camPlane = (fnCamera.isOrtho()) ? SPlane(planeOrigin, fnCamera.viewDirection(MSpace::kWorld).normal()) : SPlane::ZERO;
 
 						status = getMeshCurvature(workMesh, m_geoData[logicalIndex].geoViewData[camId.asString().asChar()], camPlane);
 						CHECK_MSTATUS_AND_RETURN_IT(status);
@@ -255,50 +247,7 @@ MStatus CurvatureCombNode::compute(const MPlug &plug, MDataBlock &datablock) {
 }
 
 void CurvatureCombNode::draw(M3dView &view, const MDagPath &path, M3dView::DisplayStyle style, M3dView::DisplayStatus stat) {
-	MStatus status;
-
-	// Trigger compute
-	MFnDagNode fnNode(thisMObject());
-	MPlug pSection = fnNode.findPlug(aUpdate, &status);
-	CHECK_MSTATUS(status);
-	pSection.asMObject();
-
-	view.beginGL();
-	glPushAttrib(GL_ALL_ATTRIB_BITS);
-
-	MColor profileColor = (stat==M3dView::kDormant) ? view.colorAtIndex(12, M3dView::kDormantColors) : view.colorAtIndex(8, M3dView::kActiveColors);
-	MColor combColor = (stat == M3dView::kDormant) ? view.colorAtIndex(6, M3dView::kDormantColors) : view.colorAtIndex(18, M3dView::kActiveColors);
-
-	MDagPath camPath;
-	view.getCamera(camPath);
-	MUuid camId = SNode::getUuid(camPath.node(), &status);
-	CHECK_MSTATUS(status)
-
-	for (auto &geo : m_geoData) {
-		for (auto &geoData : geo.second.geoViewData[camId.asString().asChar()].geoData) {
-			glColor3f(profileColor.r, profileColor.g, profileColor.b);
-			glBegin(GL_LINE_STRIP);
-			for (unsigned int i = 0; i < geoData.profilePoints.length(); i++) {
-				MPoint comb = geoData.profilePoints[i];
-				glVertex3d(comb.x, comb.y, comb.z);
-			}
-			glEnd();
-
-			glColor3f(combColor.r, combColor.g, combColor.b);
-			glBegin(GL_LINES);
-			for (unsigned int i = 0; i < geoData.samplePoints.length(); i++) {
-				MPoint sample = geoData.samplePoints[i];
-				MPoint comb = geoData.profilePoints[i];
-
-				glVertex3d(sample.x, sample.y, sample.z);
-				glVertex3d(comb.x, comb.y, comb.z);
-			}
-			glEnd();
-		}
-	}
-
-	glPopAttrib();
-	view.endGL();
+	MPxLocatorNode::draw(view, path, style, stat);
 }
 
 MStatus CurvatureCombNode::getCurveCurvature(MObject &curve, unsigned int samples, CurvatureViewGeometry &geometry, SPlane &plane) {

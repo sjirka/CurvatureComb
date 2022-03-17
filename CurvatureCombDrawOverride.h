@@ -25,6 +25,5 @@ private:
 	MColor
 		m_profileColor,
 		m_combColor;
-	MUuid m_camId;
 };
 

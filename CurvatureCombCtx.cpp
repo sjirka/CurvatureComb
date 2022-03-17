@@ -78,11 +78,11 @@ MStatus CurvatureCombCtx::doPress(MEvent &event){
 		MPlug pPlug;
 		
 		if (attr == CurvatureCombToolCmd::CurvatureAttribute::kScale)
-			pPlug = fnNode.findPlug(CurvatureCombNode::aScale, &status);
+			pPlug = fnNode.findPlug(CurvatureCombNode::aScale, false, &status);
 		else if (attr == CurvatureCombToolCmd::CurvatureAttribute::kSamples)
-			pPlug = fnNode.findPlug(CurvatureCombNode::aSamples, &status);
+			pPlug = fnNode.findPlug(CurvatureCombNode::aSamples, false, &status);
 		else if (attr == CurvatureCombToolCmd::CurvatureAttribute::kSubdivisions)
-			pPlug = fnNode.findPlug(CurvatureCombNode::aSubdivs, &status);
+			pPlug = fnNode.findPlug(CurvatureCombNode::aSubdivs, false, &status);
 		CHECK_MSTATUS_AND_RETURN_IT(status);
 		double initialValue = pPlug.asDouble();
 		

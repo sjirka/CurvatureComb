@@ -86,17 +86,17 @@ MStatus CurvatureCombCmd::doIt(const MArgList& argList) {
 				continue;
 
 			// Connect geometry
-			MPlug geoArrPlug = fnComb.findPlug(CurvatureCombNode::aGeometry, &status);
+			MPlug geoArrPlug = fnComb.findPlug(CurvatureCombNode::aGeometry, false, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 			MPlug geoElPlug = geoArrPlug.elementByLogicalIndex(counter++, &status);
 			CHECK_MSTATUS_AND_RETURN_IT(status);
-			MPlug pGeometry = fnGeometry.findPlug((path.apiType() == MFn::kMesh) ? "worldMesh" : "worldSpace");
+			MPlug pGeometry = fnGeometry.findPlug((path.apiType() == MFn::kMesh) ? "worldMesh" : "worldSpace", false);
 			status = m_dagMod.connect(pGeometry.elementByLogicalIndex(path.instanceNumber()), geoElPlug.child(CurvatureCombNode::aWorldGeometry));
 			CHECK_MSTATUS_AND_RETURN_IT(status);
 
 			// Connect smooth mesh and set active edges
 			if (path.apiType() == MFn::kMesh) {
-				status = m_dagMod.connect(fnGeometry.findPlug("outSmoothMesh"), geoElPlug.child(CurvatureCombNode::aSmoothGeometry));
+				status = m_dagMod.connect(fnGeometry.findPlug("outSmoothMesh", false), geoElPlug.child(CurvatureCombNode::aSmoothGeometry));
 
 				MFnComponentListData fnCompData;
 				MObject compData = fnCompData.create(&status);
@@ -127,23 +127,23 @@ MStatus CurvatureCombCmd::doIt(const MArgList& argList) {
 
 	if (m_isCreate || isEdit) {
 		if (argData.isFlagSet(SCALE_FLAG))
-			m_dagMod.newPlugValueDouble(fnComb.findPlug(CurvatureCombNode::aScale), argData.flagArgumentDouble(SCALE_FLAG, 0));
+			m_dagMod.newPlugValueDouble(fnComb.findPlug(CurvatureCombNode::aScale, false), argData.flagArgumentDouble(SCALE_FLAG, 0));
 		if (argData.isFlagSet(SAMPLES_FLAG))
-			m_dagMod.newPlugValueInt(fnComb.findPlug(CurvatureCombNode::aSamples), argData.flagArgumentInt(SAMPLES_FLAG, 0));
+			m_dagMod.newPlugValueInt(fnComb.findPlug(CurvatureCombNode::aSamples, false), argData.flagArgumentInt(SAMPLES_FLAG, 0));
 		if (argData.isFlagSet(OVERRIDE_SUBD_FLAG))
-			m_dagMod.newPlugValueBool(fnComb.findPlug(CurvatureCombNode::aOverrideSubdivs), argData.flagArgumentBool(OVERRIDE_SUBD_FLAG, 0));
+			m_dagMod.newPlugValueBool(fnComb.findPlug(CurvatureCombNode::aOverrideSubdivs, false), argData.flagArgumentBool(OVERRIDE_SUBD_FLAG, 0));
 		if (argData.isFlagSet(SUBD_FLAG))
-			m_dagMod.newPlugValueInt(fnComb.findPlug(CurvatureCombNode::aSubdivs), argData.flagArgumentInt(SUBD_FLAG, 0));
+			m_dagMod.newPlugValueInt(fnComb.findPlug(CurvatureCombNode::aSubdivs, false), argData.flagArgumentInt(SUBD_FLAG, 0));
 	}
 	else if (isQuery) {
 		if (argData.isFlagSet(SCALE_FLAG))
-			setResult(fnComb.findPlug(CurvatureCombNode::aScale).asDouble());
+			setResult(fnComb.findPlug(CurvatureCombNode::aScale, false).asDouble());
 		else if (argData.isFlagSet(SAMPLES_FLAG))
-			setResult(fnComb.findPlug(CurvatureCombNode::aSamples).asInt());
+			setResult(fnComb.findPlug(CurvatureCombNode::aSamples, false).asInt());
 		else if (argData.isFlagSet(OVERRIDE_SUBD_FLAG))
-			setResult(fnComb.findPlug(CurvatureCombNode::aOverrideSubdivs).asBool());
+			setResult(fnComb.findPlug(CurvatureCombNode::aOverrideSubdivs, false).asBool());
 		else if (argData.isFlagSet(SUBD_FLAG))
-			setResult(fnComb.findPlug(CurvatureCombNode::aSubdivs).asInt());
+			setResult(fnComb.findPlug(CurvatureCombNode::aSubdivs, false).asInt());
 	}
 
 	return redoIt();
